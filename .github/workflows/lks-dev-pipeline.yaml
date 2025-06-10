@@ -1,99 +1,93 @@
-name: LKS Dev Pipeline
+name: lks-dev-pipeline
 
 on:
   push:
-    branches: [ dev ]
+    branches: [dev]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
+      - name: Setup Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install docker.io -y
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
+          region: us-east-1
 
       - name: Login to ECR
-  run: |
-    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
-
-      - name: Build & Push Docker Images
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          IMAGE=$ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 629860297780.dkr.ecr.us-east-1.amazonaws.com
 
-          docker build -t $IMAGE:vote-dev-latest vote/
-          docker push $IMAGE:vote-dev-latest
+      - name: Build & Push vote image
+        run: |
+          docker build -t vote ./vote
+          docker tag vote:latest 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:vote-dev-latest
+          docker push 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:vote-dev-latest
 
-          docker build -t $IMAGE:result-dev-latest result/
-          
+      - name: Build & Push result image
+        run: |
+          docker build -t result ./result
+          docker tag result:latest 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:result-dev-latest
+          docker push 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:result-dev-latest
 
-- name: Login to ECR
-  env:
-    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
-    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
-    AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-  run: |
-    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 629860297780.dkr.ecr.us-east-1.amazonaws.com
+      - name: Build & Push worker image
+        run: |
+          docker build -t worker ./worker
+          docker tag worker:latest 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:worker-dev-latest
+          docker push 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:worker-dev-latest
 
   pull-master:
     runs-on: [self-hosted, master]
     needs: build
     steps:
-      - name: Pull images to master
+      - name: Pull images
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          IMAGE=$ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
-
-          docker pull $IMAGE:vote-dev-latest
-          docker pull $IMAGE:result-dev-latest
-          docker pull $IMAGE:worker-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:vote-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:result-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:worker-dev-latest
 
   pull-node1:
     runs-on: [self-hosted, node1]
     needs: build
     steps:
-      - name: Pull images to node1
+      - name: Pull images
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          IMAGE=$ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
-
-          docker pull $IMAGE:vote-dev-latest
-          docker pull $IMAGE:result-dev-latest
-          docker pull $IMAGE:worker-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:vote-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:result-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:worker-dev-latest
 
   pull-node2:
     runs-on: [self-hosted, node2]
     needs: build
     steps:
-      - name: Pull images to node2
+      - name: Pull images
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          IMAGE=$ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
-
-          docker pull $IMAGE:vote-dev-latest
-          docker pull $IMAGE:result-dev-latest
-          docker pull $IMAGE:worker-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:vote-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:result-dev-latest
+          docker pull 629860297780.dkr.ecr.us-east-1.amazonaws.com/lks-voting-image:worker-dev-latest
 
   deploy:
     runs-on: [self-hosted, master]
     needs: [pull-master, pull-node1, pull-node2]
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
       - name: Deploy to Docker Swarm
         run: |
-          docker stack rm vote-stack || true
-          sleep 5
-          docker stack deploy -c docker-compose.yml vote-stack
+          docker stack deploy -c docker-compose.yml voting
 
