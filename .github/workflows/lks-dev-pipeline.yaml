@@ -35,10 +35,15 @@ jobs:
           docker push $IMAGE:vote-dev-latest
 
           docker build -t $IMAGE:result-dev-latest result/
-          docker push $IMAGE:result-dev-latest
+          
 
-          docker build -t $IMAGE:worker-dev-latest worker/
-          docker push $IMAGE:worker-dev-latest
+- name: Login to ECR
+  env:
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+    AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+  run: |
+    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 629860297780.dkr.ecr.us-east-1.amazonaws.com
 
   pull-master:
     runs-on: [self-hosted, master]
